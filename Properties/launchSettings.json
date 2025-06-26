@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "keymacro": {
+      "commandName": "Project",
+      "commandLineArgs": "-f input.txt -d 5"
+    }
+  }
+}

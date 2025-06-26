@@ -3,41 +3,106 @@ using DevelopingInsanity.KeyMacro.Macros;
 
 var parameters = InputParameters.Parse(args);
 
-if (!File.Exists(parameters.Path))
+if (parameters.Record)
 {
-    Console.WriteLine($"Error: Macro file '{parameters.Path}' not found.");
-    return;
-}
+    //recording mode
+    Console.WriteLine("Recording mode: pick a key to use to stop recording.");
+    ConsoleKeyInfo stopKey = Console.ReadKey();
 
-var sequence = MacroSequence.FromFile(parameters.TargetWindow, parameters.Path);
-Console.WriteLine($"Loaded macro sequence with {sequence.Count} items.");
+    Console.WriteLine($"\nYour chosen stop key is '{stopKey.Key}'\n");
 
-if (parameters.Delay > 0)
-{
-    Console.WriteLine($"Starting macro sequence in {parameters.Delay} seconds...");
-    Thread.Sleep(parameters.Delay * 1000);
-}
+    string? targetWindow = null;
 
-int iteration = 0, i = 0;
+    WindowEnumerator winEnum = WindowEnumerator.Create();
 
-do
-{
-    Console.WriteLine($"Iteration {++iteration}");
-    i = 0;
-
-    foreach (var item in sequence)
+    if(winEnum.Count == 0)
     {
-        Console.WriteLine($"{++i}/{sequence.Count}: {item}");
-        if (!item.Execute())
-        {
-            Console.WriteLine($"Execution break({item.LastError}): {item}");
-            break;
-        }
-        Thread.Sleep(50);
+        Console.WriteLine("No open windows to target found. Exiting.");
+        return;
     }
 
-    Thread.Sleep(1000);
+    Console.WriteLine("Currently open windows:");
+    int i = 0;
+    foreach (var title in winEnum)
+    {
+        Console.WriteLine($"\t[{(++i).ToString().PadLeft(3, '0')}]{title}");
+    }
+
+    while (targetWindow == null)
+    {
+        Console.Write($"Pick a macro target window [1-{winEnum.Count}]: ");
+        string input = Console.ReadLine()?.Trim() ?? string.Empty;
+        if (int.TryParse(input, out int index) && index >= 1 && index <= winEnum.Count)
+        {
+            targetWindow = winEnum[index - 1];
+        }
+        else
+        {
+            continue;
+        }
+    }
+
+    var sequence = new MacroSequence(targetWindow);
+
+    Console.WriteLine($"Recording started, target window set to \"{targetWindow}\".\nOnly keyboard events will be recorded. Press '{stopKey.Key}' anytime to stop recording.");
+
+    var recorder = MacroRecorder.Install();
+    recorder.RecordAdded += Recorder_RecordAdded;
+    recorder.LogKeys(stopKey.Key);
+    recorder.AppendSequence(sequence);
+    sequence.SaveToFile(parameters.Path);
 }
-while (parameters.Loop);
+else
+{
+    //execution mode
 
+    if (!File.Exists(parameters.Path))
+    {
+        Console.WriteLine($"Error: Macro file '{parameters.Path}' not found.");
+        return;
+    }
 
+    var sequence = MacroSequence.FromFile(parameters.Path);
+    Console.WriteLine($"Loaded macro sequence with {sequence.Count} items.");
+
+    if (parameters.Delay > 0)
+    {
+        Console.WriteLine($"Starting macro sequence in {parameters.Delay} seconds...");
+        Thread.Sleep(parameters.Delay * 1000);
+    }
+
+    int iteration = 0;
+
+    do
+    {
+        Console.WriteLine($"Iteration #{++iteration}");
+        int i = 0;
+
+        foreach (var item in sequence)
+        {
+            Console.WriteLine($"\t{++i}/{sequence.Count}: {item}");
+            if (!item.Execute())
+            {
+                Console.WriteLine($"\tExecution break({item.LastError}): {item}");
+                break;
+            }
+
+            if (!parameters.Silent)
+                ThreadPool.QueueUserWorkItem(_ =>
+                {
+                    Console.Beep(1320, 50);
+                    Thread.Sleep(10);
+                    Console.Beep(1580, 50);
+                });
+                
+        }
+
+        Thread.Sleep(1000);
+    }
+    while (iteration < parameters.Loops);
+}
+
+static void Recorder_RecordAdded(object? sender, RecordAddedEventArgs e)
+{
+    Console.WriteLine($"\tRecord Added: {e.Record}");
+}

@@ -1,28 +1,31 @@
 namespace DevelopingInsanity.KeyMacro;
 
 
-public class InputParameters(string path, string targetWindow, int delay = 0, bool loop = false)
+public class InputParameters(string path, int delay = 0, int numberOfLoops = 0, bool recording = false, bool silent = false)
 {
     public string Path { get; set; } = path;
     public int Delay { get; set; } = delay;
-    public string TargetWindow { get; set; } = targetWindow;
-    public bool Loop { get; set; } = loop;
+    public int Loops { get; set; } = numberOfLoops;
+    public bool LoopExecution => Loops > 0;
+    public bool Record { get; set; } = recording;
+    public bool Silent { get; set; } = silent;
 
     //allowed parameters:
     // -f, --file: Path to the macro file
     // -d, --delay: Delay in milliseconds before executing the macro
-    // -w, --window: Target window for the macro
-    // -l, --loop: if specified, loop forever
+    // -s, --silent: If specified, macro execution won't play sounds
+    // -l, --loop: if specified, loop for a specified number of iterations
+    // --record: Record a new macro sequence interactively
     public static InputParameters Parse(string[] args)
     {
         if (args.Length == 0)
         {
-            throw new ArgumentException("Usage: KeyMacro -f <path> -w <window_name> [-d <delay_seconds>][-l]");
+            throw new ArgumentException("Usage:\n\tKeyMacro -f <path> [-d <delay_seconds>][-l <loops>][-s]\n\tKeyMacro --record -f <path>\n");
         }
 
-        string path = string.Empty, window = string.Empty;
-        int delay = 0;
-        bool loop = false;
+        string path = string.Empty;
+        int delay = 0, loops = 0;
+        bool record = false, silent = false;
 
         for (int i = 0; i < args.Length; i++)
         {
@@ -33,17 +36,6 @@ public class InputParameters(string path, string targetWindow, int delay = 0, bo
                     if (i + 1 < args.Length)
                     {
                         path = args[++i];
-                    }
-                    else
-                    {
-                        throw new ArgumentException("Path argument requires a value.");
-                    }
-                    break;
-                case "-w":
-                case "--window":
-                    if (i + 1 < args.Length)
-                    {
-                        window = args[++i];
                     }
                     else
                     {
@@ -63,7 +55,25 @@ public class InputParameters(string path, string targetWindow, int delay = 0, bo
                     break;
                 case "-l":
                 case "--loop":
-                    loop = true;
+                    if (i + 1 < args.Length)
+                    {
+                        loops = int.Parse(args[++i]);
+                    }
+                    else
+                    {
+                        throw new ArgumentException("Path argument requires a value.");
+                    }
+                    break;
+                case "--record":
+                    {
+                        record = true;
+                    }
+                    break;
+                case "-s":
+                case "--silent":
+                    {
+                        silent = true;
+                    }
                     break;
                 default:
                     throw new ArgumentException($"Unknown argument: {args[i]}");
@@ -75,11 +85,6 @@ public class InputParameters(string path, string targetWindow, int delay = 0, bo
             throw new ArgumentException("Path is required.");
         }
 
-        if (string.IsNullOrEmpty(window))
-        {
-            throw new ArgumentException("Path is required.");
-        }
-
-        return new InputParameters(path, window, delay, loop);
+        return new InputParameters(path, delay, loops, record, silent);
     }
 }
