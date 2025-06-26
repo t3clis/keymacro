@@ -107,6 +107,18 @@ public partial class MacroSequence:IEnumerable<MacroItem>
                 MacroAction.PressKey => new PressKeyMacro(sequence.TargetWindow, parameters[0]),
                 MacroAction.ReleaseKey => new ReleaseKeyMacro(sequence.TargetWindow, parameters[0]),
                 MacroAction.Wait => new WaitMacro(int.Parse(parameters[0])),
+                MacroAction.PressButton => parameters.Length switch
+                {
+                    3 when Enum.TryParse<MouseButton>(parameters[0], true, out var button) && int.TryParse(parameters[1], out var x) && int.TryParse(parameters[2], out var y) =>
+                        new PressButtonMacro(sequence.TargetWindow, button, new System.Drawing.Point(x, y)),
+                    _ => throw new ArgumentException("Invalid parameters for PressButton action.")
+                },
+                MacroAction.ReleaseButton => parameters.Length switch
+                {
+                    3 when Enum.TryParse<MouseButton>(parameters[0], true, out var button) && int.TryParse(parameters[1], out var x) && int.TryParse(parameters[2], out var y) =>
+                        new ReleaseButtonMacro(sequence.TargetWindow, button, new System.Drawing.Point(x, y)),
+                    _ => throw new ArgumentException("Invalid parameters for ReleaseButton action.")
+                },
                 _ => throw new NotSupportedException($"Unsupported macro action: {action}")
             };
 

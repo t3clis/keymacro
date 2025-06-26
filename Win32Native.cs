@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace DevelopingInsanity.KeyMacro.Macros;
@@ -24,11 +25,25 @@ internal struct POINT
     public int y;
 }
 
-public enum KeyOp
+[StructLayout(LayoutKind.Sequential)]
+internal struct MSLLHOOKSTRUCT
+{
+    public POINT pt;               // Mouse coordinates in screen space
+    public int mouseData;          // Additional data (e.g., wheel delta or X button)
+    public int flags;              // Event-injection flags
+    public int time;               // Timestamp for the event
+    public UIntPtr dwExtraInfo;    // Extra info associated with the message
+}
+
+
+
+public enum RecordedOp
 {
     None,
-    Up,
-    Down
+    KeyUp,
+    KeyDown,
+    MouseUp,
+    MouseDown
 }
 
 public enum VirtualKey : int
@@ -135,6 +150,9 @@ public enum VirtualKey : int
     Decimal = 0x6E,
     Divide = 0x6F,
 
+    LShift = 0xA0,
+    RShift = 0xA1,
+
     // Additional common keys
     Semicolon = 0xBA,        // ';:'
     Equal = 0xBB,            // '=+'
@@ -152,13 +170,21 @@ public enum VirtualKey : int
 internal partial class Win32Native
 {
     public delegate bool EnumWindowsProc(nint hWnd, nint lParam);
-    public delegate nint LowLevelKeyboardProc(int nCode, nint wParam, nint lParam);
+    public delegate nint LowLevelHookProc(int nCode, nint wParam, nint lParam);
+
+    public const int MK_LBUTTON = 0x0001;
+    public const int MK_RBUTTON = 0x0002;
 
     public const int WM_KEYDOWN = 0x0100;
     public const int WM_KEYUP = 0x0101;
     public const int WM_SYSKEYUP = 0x0104;
     public const int WM_SYSKEYDOWN = 0x0105;
+    public const int WM_LBUTTONDOWN = 0x0201;
+    public const int WM_LBUTTONUP = 0x0202;
+    public const int WM_RBUTTONDOWN = 0x0204;
+    public const int WM_RBUTTONUP = 0x0205;
     public const int WH_KEYBOARD_LL = 13;
+    public const int WH_MOUSE_LL = 14;
 
     [DllImport("user32.dll", SetLastError = true)]
     public static extern nint FindWindow(string? lpClassName, string? lpWindowName);
@@ -184,7 +210,7 @@ internal partial class Win32Native
     public static extern bool IsWindowVisible(nint hWnd);
 
     [DllImport("user32.dll")]
-    public static extern nint SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, nint hMod, uint dwThreadId);
+    public static extern nint SetWindowsHookEx(int idHook, LowLevelHookProc lpfn, nint hMod, uint dwThreadId);
 
     [DllImport("user32.dll")]
     public static extern bool UnhookWindowsHookEx(nint hhk);
@@ -207,6 +233,9 @@ internal partial class Win32Native
 
     [DllImport("user32.dll")]
     public static extern bool DispatchMessage(ref MSG lpMsg);
+
+    [DllImport("user32.dll")]
+    public static extern bool ScreenToClient(nint hWnd, ref POINT lpPoint);
 
 
     public static nint GetVirtualKeyCode(string key)
@@ -353,5 +382,23 @@ internal partial class Win32Native
                 (int)(key - ConsoleKey.A + VirtualKey.A),
             _ => 0
         };
+    }
+
+    internal static nint GetMouseButton(MouseButton button)
+    {
+        int val = button switch
+        {
+            MouseButton.Left => MK_LBUTTON,
+            MouseButton.Right => MK_RBUTTON,
+            MouseButton.Both => MK_LBUTTON | MK_RBUTTON,
+            _ => throw new ArgumentException("Unsupported mouse button", nameof(button))
+        };
+
+        return (nint)val;
+    }
+
+    internal static nint GetMouseCoords(uint v)
+    {
+        return (nint)v;
     }
 }

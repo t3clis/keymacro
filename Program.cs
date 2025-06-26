@@ -44,10 +44,15 @@ if (parameters.Record)
 
     var sequence = new MacroSequence(targetWindow);
 
-    Console.WriteLine($"Recording started, target window set to \"{targetWindow}\".\nOnly keyboard events will be recorded. Press '{stopKey.Key}' anytime to stop recording.");
-
     var recorder = MacroRecorder.Install();
     recorder.RecordAdded += Recorder_RecordAdded;
+
+    Console.WriteLine($"Recording started, target window set to \"{targetWindow}\".\n Press '{stopKey.Key}' anytime to stop recording.");
+   
+    //two inelegant lines of code that I'm too comfortable keeping here to move elsewhere
+    Thread.Sleep(2000);
+    Win32Native.SetForegroundWindow(Win32Native.FindWindow(null, targetWindow));
+
     recorder.LogKeys(stopKey.Key);
     recorder.AppendSequence(sequence);
     sequence.SaveToFile(parameters.Path);
