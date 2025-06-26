@@ -76,6 +76,10 @@ else
         Thread.Sleep(parameters.Delay * 1000);
     }
 
+    //two inelegant lines of code that I'm too comfortable keeping here to move elsewhere
+    Win32Native.SetForegroundWindow(Win32Native.FindWindow(null, sequence.TargetWindow));
+    Thread.Sleep(2000);
+
     int iteration = 0;
 
     do

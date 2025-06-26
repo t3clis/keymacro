@@ -317,6 +317,8 @@ public class MacroRecorder : IDisposable
             throw new ArgumentException("Cannot work on a sequence not targetting any window.");
         }
 
+        List<VirtualKey> pressedKeys = [];
+
         foreach (var entry in _records)
         {
             if (entry.TimeOffset > 0)
@@ -325,10 +327,20 @@ public class MacroRecorder : IDisposable
             switch (entry.Operation)
             {
                 case RecordedOp.KeyDown:
+                    if(pressedKeys.Contains(entry.Key))
+                    {
+                        //ignore duplicate key down events
+                        continue;
+                    }
                     sequence.AddItem(new PressKeyMacro(sequence.TargetWindow, entry.Key.ToString()));
+                    pressedKeys.Add(entry.Key);
                     break;
                 case RecordedOp.KeyUp:
                     sequence.AddItem(new ReleaseKeyMacro(sequence.TargetWindow, entry.Key.ToString()));
+                    if(pressedKeys.Contains(entry.Key))
+                    {
+                        pressedKeys.Remove(entry.Key);
+                    }
                     break;
                 case RecordedOp.MouseDown:
                     sequence.AddItem(new PressButtonMacro(sequence.TargetWindow, entry.Button, entry.Coordinates));
